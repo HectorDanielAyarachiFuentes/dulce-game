@@ -266,6 +266,7 @@
         });
         this.mesh = new THREE.Mesh(this.geometry, this.material);
         this.mesh.position.set(x, y, z);
+        this.mesh.userData.shape = this; // Reference to the instance for easy lookup
         if (shapeData.name !== 'Sphere') {
           this.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
         }
@@ -330,12 +331,12 @@
       collect() {
           const flyUp = new TWEEN.Tween(this.mesh.position)
               .to({ z: this.mesh.position.z + 5 }, 500)
-              .easing(TWEEN.Easing.Circular.In);
+              .easing(TWEEN.Easing.Circular.In)
+              .onComplete(() => this.dispose()); // Dispose only after all animations are complete
           
           new TWEEN.Tween(this.mesh.scale)
               .to({ x: 0.01, y: 0.01, z: 0.01 }, 500)
-              .onComplete(() => this.dispose())
-              .chain(flyUp)
+              .chain(flyUp) // Start flyUp tween after this one finishes
               .start();
       }
       rotate() {
@@ -435,73 +436,40 @@
       
       // --- Unified Input Handlers ---
       getPointerCoordinates(e) {
-          const eventX = e.touches ? e.touches[0].clientX : e.clientX;
-          const eventY = e.touches ? e.touches[0].clientY : e.clientY;
-          this.pointerPos.x = (eventX / window.innerWidth) * 2 - 1;
-          this.pointerPos.y = -(eventY / window.innerHeight) * 2 + 1;
+        const eventX = e.touches ? e.touches[0].clientX : e.clientX;
+        const eventY = e.touches ? e.touches[0].clientY : e.clientY;
+        this.pointerPos.x = (eventX / window.innerWidth) * 2 - 1;
+        this.pointerPos.y = -(eventY / window.innerHeight) * 2 + 1;
+      }
+      getShapeAtPointer(e) {
+        this.getPointerCoordinates(e);
+        this.raycaster.setFromCamera(this.pointerPos, this.camera);
+        const shapeMeshes = this.shapes.flat().filter(Boolean).map(s => s.mesh);
+        const intersects = this.raycaster.intersectObjects(shapeMeshes);
+        if (intersects.length > 0) {
+          // userData.shape was added in the Shape constructor for direct access
+          return intersects[0].object.userData.shape || null;
+        }
+        return null;
       }
       onPointerMove(e) {
         if (this.isAnimating || this.gamePaused) return;
-        this.getPointerCoordinates(e);
-        this.raycaster.setFromCamera(this.pointerPos, this.camera);
-        
-        // Only check shape meshes, not prizes
-        const shapeMeshes = [];
-        for (let i = 0; i < this.shapes.length; i++) {
-          for (let j = 0; j < this.shapes[i].length; j++) {
-            if (this.shapes[i]?.[j]?.mesh) {
-              shapeMeshes.push(this.shapes[i][j].mesh);
-            }
-          }
-        }
-        
-        const intersects = this.raycaster.intersectObjects(shapeMeshes);
-        let newHoveredShape = null;
-        if (intersects.length > 0) {
-          const obj = intersects[0].object;
-          for (let i = 0; i < this.shapes.length; i++) for (let j = 0; j < this.shapes[i].length; j++) {
-            if (this.shapes[i]?.[j]?.mesh === obj) {
-              newHoveredShape = this.shapes[i][j];
-              break;
-            }
-          }
-        }
+        const newHoveredShape = this.getShapeAtPointer(e);
         if (newHoveredShape !== this.hoveredShape) {
           this.clearTubeConnections();
-          if (newHoveredShape) {
-            this.hoveredShape = newHoveredShape;
-            this.highlightConnectedGroup(newHoveredShape);
-          } else {
-            this.hoveredShape = null;
+          this.hoveredShape = newHoveredShape;
+          if (this.hoveredShape) {
+            this.highlightConnectedGroup(this.hoveredShape);
           }
         }
       }
       onPointerDown(e) {
         if (e.type === 'touchstart') e.preventDefault();
         if (this.isAnimating || this.gamePaused) return;
-        this.getPointerCoordinates(e);
-        this.raycaster.setFromCamera(this.pointerPos, this.camera);
-        
-        // Only check shape meshes, not prizes
-        const shapeMeshes = [];
-        for (let i = 0; i < this.shapes.length; i++) {
-          for (let j = 0; j < this.shapes[i].length; j++) {
-            if (this.shapes[i]?.[j]?.mesh) {
-              shapeMeshes.push(this.shapes[i][j].mesh);
-            }
-          }
-        }
-        
-        const intersects = this.raycaster.intersectObjects(shapeMeshes);
-        if (intersects.length > 0) {
-          const clickedObject = intersects[0].object;
-          for (let i = 0; i < this.shapes.length; i++) for (let j = 0; j < this.shapes[i].length; j++) {
-            if (this.shapes[i]?.[j]?.mesh === clickedObject) {
-              this.clearTubeConnections();
-              this.processShapeClick(i, j);
-              return;
-            }
-          }
+        const clickedShape = this.getShapeAtPointer(e);
+        if (clickedShape) {
+          this.clearTubeConnections();
+          this.processShapeClick(clickedShape.row, clickedShape.col);
         }
       }
       onWindowResize() {
@@ -547,22 +515,23 @@
       }
       clearBoard(fullClear = true) {
         this.clearTubeConnections();
-        const toRemove = [];
-        this.scene.traverse(o => {
-          if (o.type === 'Mesh' || o.type === 'Sprite') toRemove.push(o);
-        });
-        toRemove.forEach(o => {
-            if (o === this.scene.background || !o.parent) return;
-            o.parent.remove(o);
-            if (o.geometry) o.geometry.dispose();
-            if (o.material) {
-                if (Array.isArray(o.material)) o.material.forEach(m => m.dispose());
-                else o.material.dispose();
-            }
+        // More safely clear only the shapes and prizes, not all meshes in the scene
+        this.shapes.flat().forEach(shape => {
+          if (shape) {
+            this.scene.remove(shape.mesh);
+            shape.dispose();
+          }
         });
         this.shapes = [];
+        this.prizes.forEach(prize => {
+          if (prize.prizeObj) {
+            prize.prizeObj.dispose(); // dispose() method handles scene removal
+          }
+        });
         this.prizes = [];
-        if(fullClear) TWEEN.removeAll();
+        if (fullClear) {
+          TWEEN.removeAll();
+        }
       }
       createNewBoard() {
         this.clearBoard();
