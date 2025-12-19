@@ -5,8 +5,7 @@
   <!-- Meta Tags -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="description"
-    content="Ocho Vecinos: Edición Fuegos Artificiales - Un emocionante juego de puzzle con efectos visuales espectaculares">
+  <meta name="description" content="Ocho Vecinos: Edición Fuegos Artificiales - Un emocionante juego de puzzle con efectos visuales espectaculares">
   <meta name="keywords" content="juego, puzzle, ocho vecinos, fuegos artificiales, match-3, entretenimiento">
   <meta name="author" content="Dulce Game">
   <meta name="theme-color" content="#1a1a2e">
@@ -62,64 +61,49 @@
   </section>
 
   <!-- ==================== SETTINGS SCREEN ==================== -->
-  <section id="settings-screen" class="screen" role="main" aria-label="Pantalla de configuración">
-    <header>
-      <h1 class="splash-title">Configuración</h1>
-    </header>
+  <section id="settings-screen" class="screen" role="region" aria-label="Pantalla de configuración">
+    <div class="settings-container">
+      <h1>Configuración</h1>
+      
+      <div class="settings-form">
+        <!-- Rows Setting -->
+        <div class="form-group">
+          <label for="rows-setting">Filas</label>
+          <!-- Se usa type="number" para coincidir con tu lógica nueva -->
+          <input type="number" id="rows-setting" value="11" min="3" max="20">
+        </div>
 
-    <form class="menu-container" role="form" aria-label="Formulario de configuración del juego">
-      <!-- Rows Setting -->
-      <div class="setting-item">
-        <label for="rows-setting">Filas</label>
-        <select id="rows-setting">
-          <option value="7">7</option>
-          <option value="9">9</option>
-          <option value="11" selected>11</option>
-          <option value="13">13</option>
-          <option value="15">15</option>
-        </select>
-      </div>
+        <!-- Cols Setting -->
+        <div class="form-group">
+          <label for="cols-setting">Columnas</label>
+          <input type="number" id="cols-setting" value="11" min="3" max="20">
+        </div>
 
-      <!-- Columns Setting -->
-      <div class="setting-item">
-        <label for="cols-setting">Columnas</label>
-        <select id="cols-setting">
-          <option value="7">7</option>
-          <option value="9">9</option>
-          <option value="11" selected>11</option>
-          <option value="13">13</option>
-          <option value="15">15</option>
-        </select>
-      </div>
+        <!-- Template Setting -->
+        <div class="form-group">
+          <label for="template-setting">Forma del Tablero</label>
+          <select id="template-setting">
+            <option value="rectangle">Rectángulo</option>
+            <option value="diamond">Diamante</option>
+            <option value="cross">Cruz</option>
+            <option value="circle">Círculo</option>
+            <option value="random">Aleatorio</option>
+          </select>
+        </div>
 
-      <!-- Board Template Setting -->
-      <div class="setting-item">
-        <label for="template-setting">Forma del Tablero</label>
-        <select id="template-setting" name="template" aria-label="Seleccionar forma del tablero">
-          <option value="rectangle">Rectángulo</option>
-          <option value="diamond">Diamante</option>
-          <option value="cross">Cruz</option>
-          <option value="circle">Círculo</option>
-          <option value="random">Aleatorio</option>
-        </select>
-      </div>
-
-      <!-- Minimum Group Size Setting -->
-      <div class="setting-item">
-        <label for="mingroup-setting">Tamaño Mínimo de Grupo</label>
-        <select id="mingroup-setting">
-          <option value="2" selected>2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-        </select>
+        <!-- Min Group Setting -->
+        <div class="form-group">
+          <label for="mingroup-setting">Tamaño Mínimo de Grupo</label>
+          <input type="number" id="mingroup-setting" value="2" min="2" max="5">
+        </div>
       </div>
 
       <!-- Back Button -->
-      <button id="back-to-splash-btn" class="btn btn-danger" type="button" aria-label="Volver al menú principal">
+      <!-- Agregada la clase 'btn btn-danger' para que se vea con el estilo rojo definido en el CSS -->
+      <button id="back-to-splash-btn" class="btn btn-danger" type="button">
         Volver
       </button>
-    </form>
+    </div>
   </section>
 
   <!-- ==================== GAME SCREEN ==================== -->
