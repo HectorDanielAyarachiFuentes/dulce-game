@@ -392,8 +392,11 @@ input[type="range"]::-webkit-slider-thumb {
 /* Botón de volver */
 #back-to-splash-btn {
     margin-top: 1.5rem;
-    width: 100%;
     font-size: 1.2rem;
+    /* Centra el botón usando márgenes automáticos. El max-width viene de la clase .btn */
+    margin-left: auto;
+    margin-right: auto;
+    display: block; /* Asegura que sea un elemento de bloque para que los márgenes automáticos funcionen */
 }
 
 /* --- Game Screen & UI --- */
