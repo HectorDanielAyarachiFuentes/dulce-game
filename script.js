@@ -1,4 +1,3 @@
-<script>
     // --- SCREEN MANAGEMENT ---
     const screens = document.querySelectorAll('.screen');
     const gameOverOverlay = document.getElementById('gameOver');
@@ -1102,4 +1101,3 @@
         this.renderer.render(this.scene, this.camera);
       }
     }
-  </script>
