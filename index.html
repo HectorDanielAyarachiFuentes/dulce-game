@@ -36,24 +36,12 @@
     <h1 class="splash-title">Configuración</h1>
     <div class="menu-container">
       <div class="setting-item">
-        <label for="rows-setting">Filas</label>
-        <select id="rows-setting">
-          <option value="7">7</option>
-          <option value="9">9</option>
-          <option value="11" selected>11</option>
-          <option value="13">13</option>
-          <option value="15">15</option>
-        </select>
+        <label for="rows-setting">Filas: <output id="rows-value">11</output></label>
+        <input type="range" id="rows-setting" min="7" max="15" step="2" value="11" oninput="rows-value.value = this.value">
       </div>
       <div class="setting-item">
-        <label for="cols-setting">Columnas</label>
-        <select id="cols-setting">
-          <option value="7">7</option>
-          <option value="9">9</option>
-          <option value="11" selected>11</option>
-          <option value="13">13</option>
-          <option value="15">15</option>
-        </select>
+        <label for="cols-setting">Columnas: <output id="cols-value">11</output></label>
+        <input type="range" id="cols-setting" min="7" max="15" step="2" value="11" oninput="cols-value.value = this.value">
       </div>
       <div class="setting-item">
         <label for="template-setting">Forma del Tablero</label>
@@ -66,13 +54,8 @@
         </select>
       </div>
       <div class="setting-item">
-        <label for="mingroup-setting">Tamaño Mínimo de Grupo</label>
-        <select id="mingroup-setting">
-          <option value="2" selected>2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-        </select>
+        <label for="mingroup-setting">Tamaño Mínimo de Grupo: <output id="mingroup-value">2</output></label>
+        <input type="range" id="mingroup-setting" min="2" max="5" step="1" value="2" oninput="mingroup-value.value = this.value">
       </div>
       <button id="back-to-splash-btn" class="btn btn-danger">Volver</button>
     </div>
