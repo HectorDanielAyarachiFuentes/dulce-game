@@ -24,6 +24,40 @@
         overlayElement.classList.remove('visible');
     }
 
+    // --- MODERN FEATURES HELPERS ---
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+      } else if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+
+    function saveSettings() {
+      const settings = {
+        rows: document.getElementById('rows-setting').value,
+        columns: document.getElementById('cols-setting').value,
+        template: document.getElementById('template-setting').value,
+        minGroup: document.getElementById('mingroup-setting').value,
+      };
+      localStorage.setItem('dulceGameSettings', JSON.stringify(settings));
+    }
+
+    function loadSettings() {
+      const settings = JSON.parse(localStorage.getItem('dulceGameSettings'));
+      if (settings) {
+        document.getElementById('rows-setting').value = settings.rows || 8;
+        document.getElementById('cols-setting').value = settings.columns || 8;
+        document.getElementById('template-setting').value = settings.template || 'rectangle';
+        document.getElementById('mingroup-setting').value = settings.minGroup || 3;
+      }
+    }
+
+    function saveHighScore(score) { localStorage.setItem('dulceGameHighScore', score); }
+    function loadHighScore() { return parseInt(localStorage.getItem('dulceGameHighScore') || '0'); }
+
     // --- SPLASH SCREEN 3D SCENE ---
     class SplashScene {
       constructor() {
@@ -179,41 +213,116 @@
       }
     }
 
+    // --- AUDIO MANAGER ---
+    class AudioManager {
+      constructor() {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.sounds = {};
+        this.isMuted = false;
+      }
+
+      async loadSound(name, url) {
+        if (!this.audioContext) return;
+        try {
+          const response = await fetch(url);
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+          this.sounds[name] = audioBuffer;
+        } catch (error) {
+          console.error(`Failed to load sound: ${name} from ${url}`, error);
+        }
+      }
+
+      playSound(name) {
+        if (this.isMuted || !this.sounds[name] || !this.audioContext) return;
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+        }
+        const source = this.audioContext.createBufferSource();
+        source.buffer = this.sounds[name];
+        source.connect(this.audioContext.destination);
+        source.start(0);
+      }
+    }
+
     // --- GLOBAL UI EVENT LISTENERS ---
     document.addEventListener('DOMContentLoaded', () => {
+      // Initialize audio manager and load sounds (assuming placeholder paths)
+      const audioManager = new AudioManager();
+      // Note: You need to provide actual sound files at these paths
+      // audioManager.loadSound('click', './sounds/click.wav');
+      // audioManager.loadSound('pop', './sounds/pop.wav');
+      // audioManager.loadSound('rotate', './sounds/rotate.wav');
+      // audioManager.loadSound('win', './sounds/win.wav');
+      // audioManager.loadSound('lose', './sounds/lose.wav');
+      // audioManager.loadSound('gravity', './sounds/gravity.wav');
+
       // Initialize splash scene
       window.splashScene = new SplashScene();
       window.splashScene.startAnimation();
       
-      const game = new BubblePopper();
+      const game = new BubblePopper(audioManager);
       game.animate();
 
+      // Load saved settings and high score
+      loadSettings();
+      game.loadHighScore();
+
       document.getElementById('start-game-btn').addEventListener('click', () => {
+        audioManager.playSound('click');
         showScreen('game-screen');
         game.createNewBoard();
       });
-      document.getElementById('settings-btn').addEventListener('click', () => showScreen('settings-screen'));
-      document.getElementById('back-to-splash-btn').addEventListener('click', () => showScreen('splash-screen'));
+      document.getElementById('settings-btn').addEventListener('click', () => {
+        audioManager.playSound('click');
+        showScreen('settings-screen');
+      });
+      document.getElementById('back-to-splash-btn').addEventListener('click', () => {
+        audioManager.playSound('click');
+        showScreen('splash-screen');
+      });
       document.getElementById('game-menu-btn').addEventListener('click', () => {
+        audioManager.playSound('click');
         game.pauseGame(true);
         showScreen('splash-screen');
       });
       document.getElementById('restartGame').addEventListener('click', () => {
+        audioManager.playSound('click');
         hideOverlay(gameOverOverlay);
         game.createNewBoard();
       });
       document.getElementById('nextLevel').addEventListener('click', () => {
+        audioManager.playSound('click');
         hideOverlay(gameWinOverlay);
         game.createNewBoard();
       });
       
-      document.getElementById('rotate-left-btn').addEventListener('click', () => {
-        game.rotateBoard('left');
+      document.getElementById('rotate-left-btn').addEventListener('click', () => game.rotateBoard('left'));
+      document.getElementById('rotate-right-btn').addEventListener('click', () => game.rotateBoard('right'));
+
+      // Fullscreen Button (assuming a button with id="fullscreen-btn" exists in your HTML)
+      const fullscreenBtn = document.getElementById('fullscreen-btn');
+      if (fullscreenBtn) fullscreenBtn.addEventListener('click', () => {
+        audioManager.playSound('click');
+        toggleFullscreen();
       });
-      
-      document.getElementById('rotate-right-btn').addEventListener('click', () => {
-        game.rotateBoard('right');
-      });
+
+      // Gamepad Support
+      const gamepadManager = {
+        connected: false, buttons: [],
+        poll: () => {
+          if (!gamepadManager.connected) return;
+          const gp = navigator.getGamepads()[0];
+          if (!gp) return;
+          const leftPressed = gp.buttons[4].pressed, rightPressed = gp.buttons[5].pressed;
+          if (leftPressed && !gamepadManager.buttons[4]) game.rotateBoard('left');
+          if (rightPressed && !gamepadManager.buttons[5]) game.rotateBoard('right');
+          gamepadManager.buttons = gp.buttons.map(b => b.pressed);
+        }
+      };
+      window.addEventListener("gamepadconnected", () => { gamepadManager.connected = true; });
+      window.addEventListener("gamepaddisconnected", () => { gamepadManager.connected = false; });
+      game.addUpdateCallback(gamepadManager.poll);
     });
 
     // --- TUBE CONNECTION CLASS ---
@@ -352,8 +461,10 @@
 
     // --- MAIN GAME CLASS ---
     class BubblePopper {
-      constructor() {
+      constructor(audioManager) {
+        this.audioManager = audioManager;
         this.init();
+        this.updateCallbacks = [];
       }
       init() {
         this.container = document.getElementById('container');
@@ -383,6 +494,8 @@
         this.isAnimating = false;
         this.gamePaused = false;
         
+        this.highScore = 0;
+        this.highScoreElement = document.getElementById('high-score'); // Assumes element with this ID exists
         this.scoreElement = document.getElementById('game-score');
         this.gameOverElement = document.getElementById('gameOver');
         this.gameWinElement = document.getElementById('gameWin');
@@ -536,10 +649,12 @@
       createNewBoard() {
         this.clearBoard();
         this.score = 0;
-        this.updateScore();
+        this.loadHighScore();
+        this.updateScore(); // Will display initial score of 0
         this.pauseGame(false);
         this.isAnimating = true;
         this.setRotationButtonsEnabled(false);
+        saveSettings(); // Save current settings for next time
 
         this.rows = parseInt(document.getElementById('rows-setting').value);
         this.columns = parseInt(document.getElementById('cols-setting').value);
@@ -608,6 +723,7 @@
       // --- Board Rotation ---
       rotateBoard(direction) {
         if (this.isAnimating || this.gamePaused) return;
+        this.audioManager.playSound('rotate');
         
         this.isAnimating = true;
         this.clearTubeConnections();
@@ -795,6 +911,7 @@
         this.isAnimating = true;
         this.setRotationButtonsEnabled(false);
         
+        this.audioManager.playSound('pop');
         // Calculate distance from clicked piece for fireworks timing
         const clickedRow = row;
         const clickedCol = col;
@@ -891,8 +1008,12 @@
       applyGravity() {
         let animationsPending = 0;
         const offsetY = ((this.rows - 1) * this.spacing) / 2;
+        let didMove = false;
         const onGravityComplete = () => {
-            if (--animationsPending === 0) this.removeEmptyColumns();
+            if (--animationsPending === 0) {
+              if (didMove) this.audioManager.playSound('gravity');
+              this.removeEmptyColumns();
+            }
         };
 
         for (let j = 0; j < this.columns; j++) {
@@ -902,6 +1023,7 @@
             if (!this.shapes[i][j]) {
               emptySpaces++;
             } else if (emptySpaces > 0) {
+              didMove = true;
               const shape = this.shapes[i][j];
               const targetRow = i + emptySpaces;
               this.shapes[targetRow][j] = shape; this.shapes[i][j] = null;
@@ -1012,20 +1134,33 @@
       endGame() {
         this.pauseGame(true);
         this.setRotationButtonsEnabled(false);
+        this.audioManager.playSound('lose');
         showOverlay(this.gameOverElement);
       }
       winLevel() {
         this.pauseGame(true);
         this.setRotationButtonsEnabled(false);
+        this.audioManager.playSound('win');
         showOverlay(this.gameWinElement);
       }
       pauseGame(isPaused) {
         this.gamePaused = isPaused;
         this.isAnimating = isPaused;
-        this.setRotationButtonsEnabled(!isPaused);
+        if (this.hasValidMoves()) {
+          this.setRotationButtonsEnabled(!isPaused);
+        }
       }
       updateScore() {
         this.scoreElement.textContent = this.score;
+        if (this.score > this.highScore) {
+          this.highScore = this.score;
+          saveHighScore(this.highScore);
+          if (this.highScoreElement) this.highScoreElement.textContent = `HI: ${this.highScore}`;
+        }
+      }
+      loadHighScore() {
+        this.highScore = loadHighScore();
+        if (this.highScoreElement) this.highScoreElement.textContent = `HI: ${this.highScore}`;
       }
 
       // --- Highlighting ---
@@ -1062,6 +1197,7 @@
       animate() {
         requestAnimationFrame(this.animate.bind(this));
         TWEEN.update();
+        this.updateCallbacks.forEach(cb => cb());
         if(!this.gamePaused) {
             this.prizes.forEach(p => {
               if (!p.collected && p.prizeObj) p.prizeObj.rotate();
